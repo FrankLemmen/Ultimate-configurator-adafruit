@@ -1,0 +1,1372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Macropad HID Configurator</title>
+<style>
+  :root {
+    --bg: #f3f4f8;
+    --surface: #ffffff;
+    --surface-2: #f7f8fb;
+    --text: #171a22;
+    --muted: #5e6574;
+    --line: #dfe2ea;
+    --accent: #5b4bff;
+    --accent-soft: rgba(91, 75, 255, .12);
+    --on-accent: #ffffff;
+    --danger: #e0364a;
+    --danger-soft: rgba(224, 54, 74, .1);
+    --warn: #b86e00;
+    --warn-soft: rgba(255, 166, 0, .14);
+    --ok: #13985a;
+    --shadow: 0 1px 2px rgba(20, 24, 40, .06), 0 8px 24px rgba(20, 24, 40, .06);
+    --pad-body: #2a2e37;
+    --pad-edge: #16181e;
+    --key-off: #3a3f4b;
+    --screen: #04060a;
+    --oled: #dff1ff;
+    --knob: #4a505e;
+    --foot-h: 34px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101217;
+      --surface: #191c24;
+      --surface-2: #1f232c;
+      --text: #e9ebf1;
+      --muted: #9aa2b2;
+      --line: #2c313c;
+      --accent: #8b80ff;
+      --accent-soft: rgba(139, 128, 255, .16);
+      --on-accent: #0d0b24;
+      --danger: #ff5d6e;
+      --danger-soft: rgba(255, 93, 110, .14);
+      --warn: #ffb547;
+      --warn-soft: rgba(255, 181, 71, .12);
+      --ok: #3ad08a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
+      --pad-body: #2e333d;
+      --pad-edge: #0a0b0f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101217;
+    --surface: #191c24;
+    --surface-2: #1f232c;
+    --text: #e9ebf1;
+    --muted: #9aa2b2;
+    --line: #2c313c;
+    --accent: #8b80ff;
+    --accent-soft: rgba(139, 128, 255, .16);
+    --on-accent: #0d0b24;
+    --danger: #ff5d6e;
+    --danger-soft: rgba(255, 93, 110, .14);
+    --warn: #ffb547;
+    --warn-soft: rgba(255, 181, 71, .12);
+    --ok: #3ad08a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
+    --pad-body: #2e333d;
+    --pad-edge: #0a0b0f;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  [hidden] { display: none !important; }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* Top bar */
+  .top {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 24px; background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand b { display: block; font-size: 16px; letter-spacing: -.01em; }
+  .brand span { display: block; font-size: 12px; color: var(--muted); margin-top: -2px; }
+  .logo { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); display: grid; place-items: center; }
+  .drive { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); min-width: 0; }
+  .drive .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+  .drive .dot.ro { background: var(--warn); }
+  .drive .dname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 24px calc(96px + var(--foot-h)); }
+  h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.15; letter-spacing: -.02em; margin: 0 0 8px; }
+  h2 { font-size: 20px; margin: 0 0 6px; letter-spacing: -.01em; }
+  h3 { font-size: 16px; margin: 0; }
+  .lead { color: var(--muted); font-size: 16px; margin: 0; max-width: 640px; }
+  .muted { color: var(--muted); }
+  .eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 18px; border-radius: 11px; border: 1px solid var(--line);
+    background: var(--surface); font-weight: 600; cursor: pointer; white-space: nowrap;
+    transition: border-color .15s, background .15s, transform .05s;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible, .sw:focus-visible, .choice:focus-visible, .chip:focus-visible, .key:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.danger { color: var(--danger); }
+  .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft); }
+  .btn.danger.solid { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.ghost { background: transparent; }
+  .btn.sm { padding: 7px 12px; font-size: 13px; border-radius: 9px; }
+  .btn.icon { padding: 7px 10px; min-width: 36px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.lg { padding: 14px 24px; font-size: 16px; border-radius: 13px; }
+
+  /* Cards and banners */
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+  .banner { display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 12px; margin: 0 0 12px; font-size: 14px; }
+  .banner.warn { background: var(--warn-soft); color: var(--text); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
+  .banner.warn::before { content: "!"; flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--warn); color: #000; font-weight: 800; display: grid; place-items: center; font-size: 13px; margin-top: 1px; }
+  .banner .btn { margin-left: auto; }
+
+  /* Connect */
+  .connect { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; padding: 24px 0; }
+  .connect ol { padding-left: 20px; color: var(--muted); margin: 20px 0 28px; }
+  .connect ol li { margin-bottom: 6px; }
+  .connect ol b { color: var(--text); }
+  .connect .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .connect .art { max-width: 300px; margin: 0 auto; width: 100%; }
+
+  /* Overview */
+  .ov-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .cfg { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .cfg .preview { background: var(--surface-2); border-radius: 12px; padding: 12px; cursor: pointer; }
+  .cfg .preview svg { width: 100%; max-width: 150px; display: block; margin: 0 auto; }
+  .cfg .title { display: flex; align-items: center; gap: 8px; }
+  .cfg .title h3 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; }
+  .pos { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); }
+  .badge.kb { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .badge.hid { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); border-color: transparent; }
+  .cfg .acts { display: flex; gap: 6px; margin-top: auto; }
+  .cfg .acts .grow { flex: 1; }
+  .cfg .acts .btn.sm { padding: 7px 10px; }
+  .cfg .acts .btn.icon { min-width: 34px; }
+  .new-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; min-height: 260px;
+    border: 2px dashed var(--line); border-radius: 18px; background: transparent; cursor: pointer; color: var(--muted); padding: 24px;
+  }
+  .new-card:hover { border-color: var(--accent); color: var(--accent); }
+  .new-card .plus { font-size: 34px; line-height: 1; font-weight: 300; }
+  .help { margin-top: 28px; padding: 18px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .help div b { display: block; margin-bottom: 2px; }
+  .help div span { color: var(--muted); font-size: 14px; }
+
+  /* Wizard */
+  .wizard { max-width: 760px; margin: 0 auto; padding: 32px; }
+  .steps { display: flex; gap: 8px; margin: 0 0 28px; }
+  .steps span { flex: 1; height: 5px; border-radius: 3px; background: var(--line); }
+  .steps span.on { background: var(--accent); }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+  .choice {
+    text-align: left; padding: 20px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface-2);
+    cursor: pointer; display: flex; flex-direction: column; gap: 8px;
+  }
+  .choice:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .choice[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .choice .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--surface); display: grid; place-items: center; border: 1px solid var(--line); }
+  .choice b { font-size: 17px; }
+  .choice span { color: var(--muted); font-size: 14px; }
+  .wiz-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 32px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip {
+    padding: 9px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface-2);
+    cursor: pointer; font-weight: 600;
+  }
+  .chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .oled-wrap { margin-top: 20px; max-width: 360px; }
+  .oled-wrap svg { width: 100%; display: block; border-radius: 10px; }
+
+  /* Form fields */
+  .field { margin-bottom: 18px; }
+  .field > label, .label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .input, select.input {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2);
+  }
+  .input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .input.big { font-size: 18px; padding: 13px 14px; }
+  .input.err { border-color: var(--danger); }
+  .err-text { color: var(--danger); font-size: 13px; margin-top: 6px; min-height: 1em; }
+  .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .seg { display: inline-flex; padding: 3px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--line); width: 100%; }
+  .seg button { flex: 1; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; font-weight: 600; cursor: pointer; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+  /* Editor */
+  .ed-top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .ed-top h1 { margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 26px; }
+  .unsaved { font-size: 13px; font-weight: 600; color: var(--warn); }
+  .editor { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: 24px; align-items: start; }
+  .ed-board { padding: 20px; position: sticky; top: 84px; }
+  .ed-board svg { width: 100%; display: block; }
+  .ed-board .cap { text-align: center; font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .ed-side { display: flex; flex-direction: column; gap: 16px; }
+  .panel { padding: 20px; }
+  .panel-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .kp-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .kp-head > div { flex: 1; text-align: center; }
+  .kp-head h3 { font-size: 20px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .swatches { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+  .sw {
+    aspect-ratio: 1; border-radius: 9px; border: 1px solid var(--line); background: var(--c); cursor: pointer; position: relative; padding: 0;
+  }
+  .sw.off { background: var(--key-off); }
+  .sw.off::after { content: ""; position: absolute; inset: 45% 12%; height: 2px; background: #ff6b6b; transform: rotate(-45deg); }
+  .sw.on { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .custom { margin-top: 10px; }
+  .picker { width: 42px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--c); position: relative; overflow: hidden; cursor: pointer; flex: none; }
+  .picker input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .hex { width: 110px; font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; }
+  .combo {
+    min-height: 56px; border-radius: 12px; border: 1.5px dashed var(--line); background: var(--surface-2);
+    padding: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px;
+  }
+  .combo.rec { border-color: var(--accent); border-style: solid; background: var(--accent-soft); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px var(--accent-soft); } }
+  .combo .empty { color: var(--muted); font-size: 14px; padding: 0 4px; }
+  .kchip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 11px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; font-weight: 700; font-size: 14px;
+    font-family: ui-monospace, Consolas, monospace;
+  }
+  .kchip button { border: 0; background: transparent; cursor: pointer; color: var(--muted); padding: 0 4px; font-size: 15px; line-height: 1; }
+  .kchip button:hover { color: var(--danger); }
+  .plus-sep { color: var(--muted); font-weight: 700; }
+  details.manual { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+  details.manual summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+  details.manual .row { margin-top: 10px; }
+  .mod { padding: 6px 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--surface-2); cursor: pointer; font-weight: 600; font-size: 13px; }
+  .mod[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .label-input { font-family: ui-monospace, Consolas, monospace; font-size: 20px; letter-spacing: .15em; text-transform: none; width: 140px; }
+  .site-foot {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; height: var(--foot-h);
+    display: flex; align-items: center; justify-content: center; padding: 0 16px;
+    background: var(--surface); border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 12px; text-align: center;
+  }
+  .savebar {
+    position: fixed; left: 0; right: 0; bottom: var(--foot-h); z-index: 9; display: flex; justify-content: center;
+    padding: 12px 24px; background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+  }
+  .savebar .in { max-width: 1132px; width: 100%; display: flex; gap: 10px; align-items: center; }
+  .savebar .grow { flex: 1; }
+
+  .key { cursor: pointer; }
+  .key:hover .kbody { filter: brightness(1.12); }
+
+  /* Modal and toast */
+  .modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(8, 10, 16, .55); animation: fade .15s; }
+  @keyframes fade { from { opacity: 0; } }
+  .dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; width: min(540px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  .dialog h2 { margin-bottom: 10px; }
+  .dialog p { color: var(--muted); margin: 0 0 10px; }
+  .dialog ol { padding-left: 20px; margin: 8px 0 0; }
+  .dialog ol li { margin-bottom: 8px; }
+  .dialog ol li span { color: var(--muted); display: block; font-size: 14px; }
+  .dialog code, .hint code, .banner code { font-family: ui-monospace, Consolas, monospace; font-size: .92em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+  .dialog .tech { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--muted); margin-top: 12px; word-break: break-word; }
+  .mActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(90px + var(--foot-h)); transform: translate(-50%, 20px); z-index: 60;
+    background: var(--text); color: var(--bg); padding: 11px 18px; border-radius: 12px; font-weight: 600; font-size: 14px;
+    opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100vw - 32px);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 900px) {
+    .editor { grid-template-columns: 1fr; }
+    .ed-board { position: static; max-width: 420px; margin: 0 auto; width: 100%; }
+    .connect { grid-template-columns: 1fr; }
+    .connect .art { max-width: 220px; }
+  }
+  @media (max-width: 560px) {
+    main { padding: 20px 16px calc(110px + var(--foot-h)); }
+    .top { padding: 10px 16px; }
+    .drive .dname { max-width: 110px; }
+    .choices, .two { grid-template-columns: 1fr; }
+    .wizard { padding: 20px; }
+    .swatches { grid-template-columns: repeat(5, 1fr); }
+    .savebar { padding: 10px 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .combo.rec { animation: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><g fill="#fff"><rect x="1" y="7" width="5" height="5" rx="1.2"/><rect x="7.5" y="7" width="5" height="5" rx="1.2"/><rect x="14" y="7" width="5" height="5" rx="1.2"/><rect x="1" y="13.5" width="5" height="5" rx="1.2"/><rect x="7.5" y="13.5" width="5" height="5" rx="1.2"/><rect x="14" y="13.5" width="5" height="5" rx="1.2"/><rect x="1" y="1" width="11.5" height="4.5" rx="1.2" opacity=".6"/><circle cx="16.5" cy="3.2" r="2.4"/></g></svg>
+    </div>
+    <div><b>Macropad HID</b><span>Configurator</span></div>
+  </div>
+  <div class="drive" id="driveChip" hidden>
+    <span class="dot" id="driveDot"></span>
+    <span class="dname" id="driveName"></span>
+    <button class="btn ghost sm" id="btnChangeDrive">Change drive</button>
+  </div>
+</header>
+
+<main>
+  <!-- 1. Connect -->
+  <section id="vConnect">
+    <div class="connect">
+      <div>
+        <div class="eyebrow">Step 1</div>
+        <h1>Connect your MacroPad</h1>
+        <p class="lead">Your configs live on the MacroPad itself. Choose its drive so this page can read and save them.</p>
+        <ol>
+          <li>Plug in the MacroPad. It appears as a drive called <b>CIRCUITPY</b>.</li>
+          <li>Click <b>Select drive</b>. Choose <b>CIRCUITPY</b> (for example <b>E:\</b> on Windows, or <b>CIRCUITPY</b> under Locations on a Mac).</li>
+          <li>Allow the page to <b>view and edit</b> files when the browser asks.</li>
+        </ol>
+        <div class="actions" id="connectActions">
+          <button class="btn primary lg" id="btnSelect">Select drive</button>
+          <button class="btn lg" id="btnReconnect" hidden>Reconnect to last drive</button>
+        </div>
+        <div class="banner warn" id="unsupported" hidden style="margin-top:20px">
+          <div><b>This browser can't open drives.</b> Open this page in <b>Google Chrome</b> or <b>Microsoft Edge</b> on Windows or macOS. Safari and Firefox don't support saving to a drive from a web page.</div>
+        </div>
+      </div>
+      <div class="art" id="connectArt"></div>
+    </div>
+  </section>
+
+  <!-- 2. Overview -->
+  <section id="vOverview" hidden>
+    <div id="ovBanners"></div>
+    <div class="ov-head">
+      <div>
+        <h1>Your configs</h1>
+        <p class="lead">Turn the knob on the MacroPad to switch between them, in this order.</p>
+      </div>
+      <button class="btn primary" id="btnNew">+ New config</button>
+    </div>
+    <div class="grid" id="cfgGrid"></div>
+    <div class="card help">
+      <div><b>Turn the knob</b><span>Loads the next or previous config. Its name appears on the display at once.</span></div>
+      <div><b>Push the knob</b><span>Sleep: all lights and the display go off and the keys do nothing. Push again to wake up.</span></div>
+      <div><b>Dimming</b><span>After the dim time the lights go off, but the keys keep working. Any key press turns them back on.</span></div>
+    </div>
+  </section>
+
+  <!-- 3. Wizard -->
+  <section id="vWizard" hidden>
+    <div class="card wizard">
+      <div class="steps" id="wizSteps"><span></span><span></span><span></span></div>
+      <div id="wizBody"></div>
+      <div class="wiz-foot">
+        <button class="btn" id="wizBack">Cancel</button>
+        <button class="btn primary" id="wizNext">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Editor -->
+  <section id="vEditor" hidden>
+    <div class="ed-top">
+      <button class="btn sm" id="edBack">← All configs</button>
+      <h1 id="edTitle"></h1>
+      <span class="unsaved" id="edUnsaved" hidden>● Unsaved changes</span>
+    </div>
+    <div class="editor">
+      <div class="card ed-board">
+        <div id="edBoard"></div>
+        <div class="cap">Click a key to edit it. The screen shows exactly what the MacroPad will show.</div>
+      </div>
+      <div class="ed-side">
+        <div class="card panel" id="cfgPanel"></div>
+        <div class="card panel" id="keyPanel"></div>
+      </div>
+    </div>
+    <div class="savebar">
+      <div class="in">
+        <button class="btn danger" id="edDelete">Delete</button>
+        <span class="grow"></span>
+        <button class="btn" id="edCancel">Cancel</button>
+        <button class="btn primary" id="edSave">Save to MacroPad</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="modal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <h2 id="mTitle"></h2>
+    <div id="mBody"></div>
+    <div class="mActions" id="mActions"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<footer class="site-foot">Created by Frank Lemmen - 2026 - Open source - AI coded</footer>
+
+<script>
+"use strict";
+
+/* ---------------------------------------------------------------- constants */
+const NUM_KEYS = 12;
+const COLS = 21, ROWS = 5;          // OLED text grid used by code.py.
+const NAME_MAX = 16;                // Fits the keyboard-mode header row.
+const LABEL_MAX = 4;
+const MAX_KEYS_PER_COMBO = 6;       // USB boot keyboard report limit.
+const DIM_OPTIONS = [0, 1, 2, 5, 10, 15, 30, 60];
+const DEFAULT_COLOR = "#FFFFFF";
+const PRESETS = [
+  ["Off", "#000000"], ["Red", "#FF0000"], ["Orange", "#FF5000"], ["Yellow", "#FFC800"],
+  ["Green", "#00FF00"], ["Cyan", "#00FFFF"], ["Blue", "#0000FF"], ["Purple", "#8000FF"],
+  ["Magenta", "#FF00A0"], ["White", "#FFFFFF"],
+];
+
+/* HID usage table: KeyboardEvent.code -> USB HID usage ID (positional, layout independent). */
+const USAGE = {};      // event.code -> usage
+const KEYNAME = {};    // usage -> short ASCII name
+const GROUPS = [];     // for the "add key" menu
+function defKeys(group, list) {
+  GROUPS.push([group, list.map(k => k[1])]);
+  for (const [code, usage, name] of list) { USAGE[code] = usage; KEYNAME[usage] = name; }
+}
+defKeys("Letters", Array.from({ length: 26 }, (_, i) => {
+  const c = String.fromCharCode(65 + i); return ["Key" + c, 4 + i, c];
+}));
+defKeys("Numbers", [...Array.from({ length: 9 }, (_, i) => ["Digit" + (i + 1), 30 + i, String(i + 1)]), ["Digit0", 39, "0"]]);
+defKeys("Function keys", [
+  ...Array.from({ length: 12 }, (_, i) => ["F" + (i + 1), 58 + i, "F" + (i + 1)]),
+  ...Array.from({ length: 12 }, (_, i) => ["F" + (i + 13), 104 + i, "F" + (i + 13)]),
+]);
+defKeys("Navigation", [
+  ["ArrowUp", 82, "Up"], ["ArrowDown", 81, "Down"], ["ArrowLeft", 80, "Left"], ["ArrowRight", 79, "Right"],
+  ["Home", 74, "Home"], ["End", 77, "End"], ["PageUp", 75, "PgUp"], ["PageDown", 78, "PgDn"],
+  ["Insert", 73, "Ins"], ["Delete", 76, "Del"],
+]);
+defKeys("Editing and symbols", [
+  ["Enter", 40, "Enter"], ["Escape", 41, "Esc"], ["Backspace", 42, "Bksp"], ["Tab", 43, "Tab"], ["Space", 44, "Space"],
+  ["Minus", 45, "-"], ["Equal", 46, "="], ["BracketLeft", 47, "["], ["BracketRight", 48, "]"], ["Backslash", 49, "\\"],
+  ["Semicolon", 51, ";"], ["Quote", 52, "'"], ["Backquote", 53, "`"], ["Comma", 54, ","], ["Period", 55, "."],
+  ["Slash", 56, "/"], ["IntlBackslash", 100, "Intl\\"], ["CapsLock", 57, "Caps"],
+]);
+defKeys("Numpad", [
+  ...Array.from({ length: 9 }, (_, i) => ["Numpad" + (i + 1), 89 + i, "Num" + (i + 1)]), ["Numpad0", 98, "Num0"],
+  ["NumpadDecimal", 99, "Num."], ["NumpadEnter", 88, "NumEnter"], ["NumpadAdd", 87, "Num+"], ["NumpadSubtract", 86, "Num-"],
+  ["NumpadMultiply", 85, "Num*"], ["NumpadDivide", 84, "Num/"], ["NumpadEqual", 103, "Num="], ["NumLock", 83, "NumLk"],
+]);
+defKeys("System", [["PrintScreen", 70, "PrtSc"], ["ScrollLock", 71, "ScrLk"], ["Pause", 72, "Pause"], ["ContextMenu", 101, "Menu"]]);
+const IS_MAC = /Mac/i.test(navigator.platform || navigator.userAgent);
+const MODS = [
+  ["ControlLeft", 0xE0, "Ctrl"], ["ShiftLeft", 0xE1, "Shift"], ["AltLeft", 0xE2, IS_MAC ? "Option" : "Alt"], ["MetaLeft", 0xE3, IS_MAC ? "Cmd" : "Win"],
+  ["ControlRight", 0xE4, "RCtrl"], ["ShiftRight", 0xE5, "RShift"], ["AltRight", 0xE6, IS_MAC ? "ROption" : "AltGr"], ["MetaRight", 0xE7, IS_MAC ? "RCmd" : "RWin"],
+];
+for (const [code, usage, name] of MODS) { USAGE[code] = usage; KEYNAME[usage] = name; }
+const isMod = u => u >= 0xE0 && u <= 0xE7;
+
+/* ---------------------------------------------------------------- helpers */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ascii = s => String(s ?? "").replace(/[^\x20-\x7E]/g, "");
+const validHex = v => /^#?[0-9a-f]{6}$/i.test(String(v || "")) ? ("#" + String(v).replace("#", "")).toUpperCase() : null;
+const padR = (s, n) => (s + " ".repeat(n)).slice(0, n);
+const centered = s => { s = s.slice(0, COLS); return " ".repeat(Math.floor((COLS - s.length) / 2)) + s; };
+const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;   // Same ordering as Python's sort.
+function luminance(hex) {
+  const v = parseInt(hex.slice(1), 16);
+  return (0.299 * (v >> 16 & 255) + 0.587 * (v >> 8 & 255) + 0.114 * (v & 255)) / 255;
+}
+function sortCodes(codes) {
+  const mods = codes.filter(isMod).sort((a, b) => a - b);
+  return [...mods, ...codes.filter(c => !isMod(c))];
+}
+const comboText = codes => sortCodes(codes).map(c => KEYNAME[c] || ("#" + c)).join("+");
+
+const S = {
+  dir: null, canWrite: false, fwOk: true, cpVersion: "", configs: [], badFiles: [],
+  ed: null,          // { file: string|null, data: config, original: string }
+  sel: 0, dirty: false, wiz: null, rec: null, manualOpen: false,
+};
+
+/* ---------------------------------------------------------------- persistence of the drive handle */
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("macropad-hid", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function kvGet(key) {
+  try {
+    const db = await idb();
+    return await new Promise((res, rej) => {
+      const q = db.transaction("kv").objectStore("kv").get(key);
+      q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+    });
+  } catch { return null; }
+}
+async function kvSet(key, value) {
+  try {
+    const db = await idb();
+    await new Promise((res, rej) => {
+      const t = db.transaction("kv", "readwrite");
+      t.objectStore("kv").put(value, key);
+      t.oncomplete = res; t.onerror = () => rej(t.error);
+    });
+  } catch { /* Not essential. */ }
+}
+
+/* ---------------------------------------------------------------- UI basics */
+function show(view) {
+  for (const v of ["vConnect", "vOverview", "vWizard", "vEditor"]) $(v).hidden = v !== view;
+  window.scrollTo(0, 0);
+}
+let toastTimer;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
+}
+let modalResolve = null;
+function modal({ title, body, buttons }) {
+  if (modalResolve) modalResolve(null);
+  $("mTitle").textContent = title;
+  $("mBody").innerHTML = body;
+  $("mActions").innerHTML = buttons.map((b, i) =>
+    `<button class="btn ${b.kind || ""}" data-i="${i}">${esc(b.label)}</button>`).join("");
+  $("modal").hidden = false;
+  return new Promise(res => {
+    modalResolve = res;
+    $("mActions").onclick = e => {
+      const b = e.target.closest("button[data-i]"); if (!b) return;
+      closeModal(buttons[+b.dataset.i].value);
+    };
+    const focus = $("mActions").querySelector(".primary, .solid") || $("mActions").lastElementChild;
+    focus && focus.focus();
+  });
+}
+function closeModal(value) {
+  $("modal").hidden = true;
+  const r = modalResolve; modalResolve = null; r && r(value);
+}
+$("modal").addEventListener("click", e => { if (e.target === $("modal")) closeModal(null); });
+
+let actx = null;
+function chime() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime;
+    [[880, 0], [1318.5, 0.11]].forEach(([f, d]) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + d);
+      g.gain.exponentialRampToValueAtTime(0.22, t + d + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.18);
+      o.connect(g).connect(actx.destination);
+      o.start(t + d); o.stop(t + d + 0.2);
+    });
+  } catch { /* Sound is optional. */ }
+}
+
+/* ---------------------------------------------------------------- board drawing */
+let svgId = 0;
+function oledLines(cfg) {
+  if (cfg.mode === "keyboard") {
+    const mode = "KBD";
+    const rows = [padR(cfg.name, COLS - mode.length - 1) + " " + mode];
+    const c2 = Math.floor((COLS - 4) / 2), c3 = COLS - 4;
+    for (let r = 0; r < 4; r++) {
+      const [a, b, c] = cfg.keys.slice(3 * r, 3 * r + 3).map(k => (k.label || "").slice(0, LABEL_MAX));
+      rows.push(padR(a, c2) + padR(b, c3 - c2) + padR(c, 4));
+    }
+    return rows;
+  }
+  return ["", centered(cfg.name), "", centered("HID controller"), ""];
+}
+function oledSVG(cfg, x, y, w, h) {
+  const cw = w / COLS, rh = h / ROWS, fs = Math.min(rh * 0.82, cw * 1.6);
+  let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--screen)"/>`;
+  oledLines(cfg).forEach((line, r) => {
+    const chars = padR(line, COLS);
+    if (!chars.trim()) return;
+    const xs = Array.from({ length: COLS }, (_, i) => (x + i * cw + cw / 2).toFixed(2)).join(" ");
+    s += `<text x="${xs}" y="${(y + rh * r + rh * 0.78).toFixed(2)}" text-anchor="middle" font-family="ui-monospace, Consolas, Menlo, monospace"
+      font-size="${fs.toFixed(2)}" fill="var(--oled)" style="white-space:pre">${esc(chars)}</text>`;
+  });
+  return s;
+}
+function oledOnly(cfg) {
+  return `<svg viewBox="0 0 256 128" role="img" aria-label="Display preview">${oledSVG(cfg, 0, 0, 256, 128)}</svg>`;
+}
+function boardSVG(cfg, { selected = -1, interactive = false } = {}) {
+  const id = ++svgId;
+  const kb = cfg.mode === "keyboard";
+  let keys = "";
+  for (let i = 0; i < NUM_KEYS; i++) {
+    const k = cfg.keys[i];
+    const x = 20 + (i % 3) * 90, y = 140 + Math.floor(i / 3) * 78, w = 80, h = 68;
+    const off = k.color === "#000000";
+    const fill = off ? "var(--key-off)" : k.color;
+    const ink = off ? "rgba(255,255,255,.8)" : luminance(k.color) > 0.55 ? "rgba(0,0,0,.8)" : "rgba(255,255,255,.96)";
+    const sub = off ? "rgba(255,255,255,.5)" : luminance(k.color) > 0.55 ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.7)";
+    const main = kb ? (k.label || "") : String(i + 1);
+    let small = kb ? comboText(k.codes || []) : "Button";
+    if (small.length > 14) small = small.slice(0, 13) + "…";
+    keys += `<g class="key" data-key="${i}" ${interactive ? `tabindex="0" role="button" aria-label="Key ${i + 1}${main ? ", " + esc(main) : ""}"` : ""}>
+      <rect class="kbody" x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${fill}" ${off ? "" : `filter="url(#g${id})"`}/>
+      ${selected === i ? `<rect x="${x - 5}" y="${y - 5}" width="${w + 10}" height="${h + 10}" rx="14" fill="none" stroke="var(--accent)" stroke-width="3.5"/>` : ""}
+      <text x="${x + 8}" y="${y + 16}" font-size="11" font-weight="700" fill="${sub}" font-family="system-ui, sans-serif">${i + 1}</text>
+      ${main ? `<text x="${x + w / 2}" y="${y + (kb ? 41 : 44)}" text-anchor="middle" font-size="${kb ? 19 : 22}" font-weight="800" fill="${ink}" font-family="ui-monospace, Consolas, monospace">${esc(main)}</text>` : ""}
+      ${small ? `<text x="${x + w / 2}" y="${y + 59}" text-anchor="middle" font-size="10" font-weight="600" fill="${sub}" font-family="system-ui, sans-serif">${esc(small)}</text>` : ""}
+    </g>`;
+  }
+  return `<svg viewBox="0 0 300 456" role="${interactive ? "group" : "img"}" aria-label="MacroPad: display, knob and 12 keys">
+    <defs><filter id="g${id}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    <rect x="130" y="0" width="40" height="10" rx="3" fill="var(--pad-edge)"/>
+    <rect x="4" y="5" width="292" height="447" rx="22" fill="var(--pad-body)" stroke="var(--pad-edge)" stroke-width="3"/>
+    <rect x="18" y="22" width="184" height="100" rx="8" fill="#05070b"/>
+    ${oledSVG(cfg, 26, 30, 168, 84)}
+    <circle cx="250" cy="72" r="31" fill="var(--knob)" stroke="var(--pad-edge)" stroke-width="3"/>
+    <circle cx="250" cy="72" r="20" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="2"/>
+    <line x1="250" y1="46" x2="250" y2="56" stroke="rgba(255,255,255,.45)" stroke-width="3" stroke-linecap="round"/>
+    ${keys}
+  </svg>`;
+}
+
+/* ---------------------------------------------------------------- configs */
+function newConfig(mode, name, dim) {
+  const order = S.configs.reduce((m, c) => Math.max(m, c.data.order || 0), 0) + 10;
+  return {
+    version: 1, name, mode, dim_minutes: dim, order,
+    keys: Array.from({ length: NUM_KEYS }, () => ({ color: DEFAULT_COLOR, label: "", codes: [] })),
+  };
+}
+function normalize(d, file) {
+  d = d && typeof d === "object" ? d : {};
+  const src = Array.isArray(d.keys) ? d.keys : [];
+  const keys = Array.from({ length: NUM_KEYS }, (_, i) => {
+    const k = src[i] && typeof src[i] === "object" ? src[i] : {};
+    const codes = Array.isArray(k.codes) ? k.codes.filter(n => Number.isInteger(n) && n > 0 && n <= 0xE7) : [];
+    return { color: validHex(k.color) || "#000000", label: ascii(k.label).slice(0, LABEL_MAX), codes: sortCodes([...new Set(codes)]) };
+  });
+  const dim = Number(d.dim_minutes);
+  return {
+    version: 1,
+    name: ascii(d.name || file.replace(/\.json$/i, "")).slice(0, NAME_MAX),
+    mode: d.mode === "keyboard" ? "keyboard" : "hid",
+    dim_minutes: Number.isFinite(dim) && dim > 0 ? dim : 0,
+    order: Number.isFinite(d.order) ? d.order : 0,
+    keys,
+  };
+}
+function serialize(c) {
+  const kb = c.mode === "keyboard";
+  return {
+    version: 1, name: c.name, mode: c.mode, dim_minutes: c.dim_minutes, order: c.order,
+    keys: c.keys.map(k => kb
+      ? { color: k.color, label: k.label, codes: sortCodes(k.codes), combo: comboText(k.codes) }
+      : { color: k.color }),
+  };
+}
+function slugify(name) {
+  const s = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  return s || "config";
+}
+const dimText = m => m > 0 ? `Dims after ${m} min` : "Never dims";
+
+/* ---------------------------------------------------------------- file system */
+async function readText(dir, name) {
+  try { return await (await (await dir.getFileHandle(name)).getFile()).text(); } catch { return null; }
+}
+async function writeJSON(dir, name, obj) {
+  const fh = await dir.getFileHandle(name, { create: true });
+  const w = await fh.createWritable();
+  try {
+    await w.write(JSON.stringify(obj, null, 2) + "\n");
+    await w.close();
+  } catch (e) {
+    try { await w.abort(); } catch { /* ignore */ }
+    throw e;
+  }
+}
+async function ensureWritable() {
+  let p = await S.dir.queryPermission({ mode: "readwrite" });
+  if (p !== "granted") p = await S.dir.requestPermission({ mode: "readwrite" });
+  S.canWrite = p === "granted";
+  updateDriveChip();
+  if (!S.canWrite) {
+    const e = new Error("The browser has no permission to edit files on this drive.");
+    e.name = "NotAllowedError"; throw e;
+  }
+}
+async function configsDir(create) {
+  return S.dir.getDirectoryHandle("configs", { create });
+}
+async function loadConfigs() {
+  S.configs = []; S.badFiles = [];
+  let dir;
+  try { dir = await configsDir(false); } catch { return; }
+  for await (const [name, h] of dir.entries()) {
+    if (h.kind !== "file" || !/\.json$/i.test(name) || name.startsWith("_") || name.startsWith(".")) continue;
+    try {
+      const data = JSON.parse(await (await h.getFile()).text());
+      S.configs.push({ file: name, data: normalize(data, name) });
+    } catch { S.badFiles.push(name); }
+  }
+  // Same order as the firmware: (order, filename).
+  S.configs.sort((a, b) => (a.data.order - b.data.order) || cmp(a.file, b.file));
+}
+
+/* ---------------------------------------------------------------- connect */
+function updateDriveChip() {
+  $("driveChip").hidden = !S.dir;
+  if (!S.dir) return;
+  $("driveName").textContent = (S.dir.name || "CIRCUITPY") + (S.canWrite ? "" : " (read-only)");
+  $("driveDot").classList.toggle("ro", !S.canWrite);
+}
+async function useDrive(dir) {
+  let p = await dir.queryPermission({ mode: "readwrite" });
+  if (p !== "granted") {
+    try { p = await dir.requestPermission({ mode: "readwrite" }); } catch { p = "denied"; }
+  }
+  if (p !== "granted") {
+    let r = await dir.queryPermission({ mode: "read" });
+    if (r !== "granted") { try { r = await dir.requestPermission({ mode: "read" }); } catch { r = "denied"; } }
+    if (r !== "granted") { toast("The page needs permission to read the drive."); return; }
+  }
+  const bootOut = await readText(dir, "boot_out.txt");
+  if (bootOut === null) {
+    const hasConfigs = await dir.getDirectoryHandle("configs").then(() => true, () => false);
+    if (!hasConfigs) {
+      const go = await modal({
+        title: "Is this the CIRCUITPY drive?",
+        body: `<p>The folder <b>${esc(dir.name)}</b> doesn't look like a MacroPad drive (there's no <code>boot_out.txt</code>).</p>
+               <p>Pick the drive called <b>CIRCUITPY</b>, not a folder inside it.</p>`,
+        buttons: [{ label: "Use it anyway", value: "use" }, { label: "Pick another drive", value: "pick", kind: "primary" }],
+      });
+      if (go === "pick") return selectDrive();
+      if (go !== "use") return;
+    }
+  }
+  S.dir = dir;
+  S.canWrite = p === "granted";
+  S.cpVersion = bootOut ? (bootOut.split("\n")[0].match(/CircuitPython\s+[\d.]+\S*/) || [""])[0] : "";
+  const code = await readText(dir, "code.py");
+  S.fwOk = !!code && code.includes("MACROPAD-HID-FW");
+  kvSet("drive", dir);
+  updateDriveChip();
+  await loadConfigs();
+  if (!S.configs.length && !S.badFiles.length) startWizard(true);
+  else renderOverview();
+}
+async function selectDrive() {
+  try {
+    const dir = await window.showDirectoryPicker({ id: "macropad-hid", mode: "readwrite" });
+    await useDrive(dir);
+  } catch (e) {
+    if (e.name !== "AbortError") showError("Couldn't open the drive", e);
+  }
+}
+async function reconnect() {
+  const dir = await kvGet("drive");
+  if (!dir) return selectDrive();
+  try { await useDrive(dir); }
+  catch (e) {
+    toast("That drive isn't available. Please select it again.");
+    selectDrive();
+  }
+}
+$("btnSelect").onclick = selectDrive;
+$("btnReconnect").onclick = reconnect;
+$("btnChangeDrive").onclick = async () => {
+  if (S.dirty && !(await confirmDiscard())) return;
+  S.dirty = false; selectDrive();
+};
+
+/* ---------------------------------------------------------------- errors */
+function showError(title, e) {
+  modal({
+    title,
+    body: `<p>${esc(e && e.message || String(e))}</p>`,
+    buttons: [{ label: "OK", value: true, kind: "primary" }],
+  });
+}
+function showReadOnly(e) {
+  return modal({
+    title: "The MacroPad drive is read-only",
+    body: `<p>Your changes couldn't be saved because the computer can't write to the <b>CIRCUITPY</b> drive. Try these steps:</p>
+      <ol>
+        <li><b>Allow editing in the browser.</b><span>Click <b>Try again</b> below and choose <b>Allow</b>/<b>Save changes</b> when the browser asks to edit files.</span></li>
+        <li><b>Check the boot.py file on the drive.</b><span>Some MacroPad projects lock the drive unless a key is held while plugging in (for example key 1). Hold that key while plugging in, then copy this project's <code>boot.py</code> to the drive so it stays writable.</span></li>
+        <li><b>Unplug the MacroPad and plug it back in.</b><span>If the display or LED says <i>safe mode</i>, press the reset button once.</span></li>
+        <li><b>Check free space.</b><span>The drive is small (about 1 MB). Delete files you don't need from it.</span></li>
+        <li><b>On a Mac:</b><span>eject CIRCUITPY in Finder, unplug, plug back in and reconnect here.</span></li>
+      </ol>
+      ${e ? `<div class="tech">Details: ${esc(e.name || "")} ${esc(e.message || "")}</div>` : ""}`,
+    buttons: [{ label: "Close", value: false }, { label: "Try again", value: true, kind: "primary" }],
+  });
+}
+
+/* ---------------------------------------------------------------- overview */
+function renderOverview() {
+  S.ed = null; S.dirty = false; stopRecording();
+  const banners = [];
+  if (!S.fwOk) banners.push(`<div class="banner warn"><div><b>Macropad HID firmware not found on this drive.</b> Copy <code>boot.py</code> and <code>code.py</code> from the <code>firmware</code> folder to the drive, then unplug and replug the MacroPad. You can still create configs now.</div></div>`);
+  if (!S.canWrite) banners.push(`<div class="banner warn"><div><b>Read-only.</b> You can look at the configs but not save changes.</div><button class="btn sm" data-act="ro">How to fix</button></div>`);
+  if (S.badFiles.length) banners.push(`<div class="banner warn"><div><b>Some files couldn't be read</b> and are skipped by the MacroPad: ${S.badFiles.map(f => `<code>${esc(f)}</code>`).join(", ")}</div></div>`);
+  $("ovBanners").innerHTML = banners.join("");
+
+  const n = S.configs.length;
+  $("cfgGrid").innerHTML = S.configs.map((c, i) => `
+    <article class="card cfg" data-i="${i}">
+      <div class="preview" data-act="edit" title="Edit">${boardSVG(c.data)}</div>
+      <div class="title"><h3 title="${esc(c.data.name)}">${esc(c.data.name)}</h3><span class="pos">${i + 1} / ${n}</span></div>
+      <div class="badges">
+        <span class="badge ${c.data.mode === "keyboard" ? "kb" : "hid"}">${c.data.mode === "keyboard" ? "Keyboard" : "HID controller"}</span>
+        <span class="badge">${dimText(c.data.dim_minutes)}</span>
+      </div>
+      <div class="acts">
+        <button class="btn sm primary grow" data-act="edit">Edit</button>
+        <button class="btn sm" data-act="dup">Duplicate</button>
+        <button class="btn sm icon" data-act="up" title="Move earlier" aria-label="Move earlier" ${i === 0 ? "disabled" : ""}>↑</button>
+        <button class="btn sm icon" data-act="down" title="Move later" aria-label="Move later" ${i === n - 1 ? "disabled" : ""}>↓</button>
+        <button class="btn sm danger icon" data-act="del" title="Delete" aria-label="Delete">🗑</button>
+      </div>
+    </article>`).join("") + `
+    <button class="new-card" data-act="new"><span class="plus">+</span><b>New config</b><span>Keyboard or HID controller</span></button>`;
+  show("vOverview");
+}
+$("vOverview").addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const act = el.dataset.act;
+  const card = el.closest("[data-i]");
+  const c = card ? S.configs[+card.dataset.i] : null;
+  if (act === "new") startWizard(false);
+  else if (act === "ro") showReadOnly();
+  else if (act === "edit") openEditor(c.file, structuredClone(c.data));
+  else if (act === "dup") {
+    const d = structuredClone(c.data);
+    d.name = uniqueName(d.name);
+    d.order = S.configs.reduce((m, x) => Math.max(m, x.data.order || 0), 0) + 10;
+    openEditor(null, d, true);
+    toast("Copy created. Save it to keep it.");
+  } else if (act === "del") deleteConfig(c);
+  else if (act === "up" || act === "down") moveConfig(+card.dataset.i, act === "up" ? -1 : 1);
+});
+$("btnNew").onclick = () => startWizard(false);
+function uniqueName(base) {
+  const taken = new Set(S.configs.map(c => c.data.name.toLowerCase()));
+  for (let n = 2; ; n++) {
+    const suffix = " " + n;
+    const name = base.slice(0, NAME_MAX - suffix.length) + suffix;
+    if (!taken.has(name.toLowerCase())) return name;
+  }
+}
+async function moveConfig(i, dirn) {
+  const j = i + dirn;
+  if (j < 0 || j >= S.configs.length) return;
+  const list = S.configs.slice();
+  [list[i], list[j]] = [list[j], list[i]];
+  try {
+    await ensureWritable();
+    const dir = await configsDir(true);
+    // Renumber 10, 20, 30... and rewrite only what changed.
+    for (let k = 0; k < list.length; k++) {
+      const want = (k + 1) * 10;
+      if (list[k].data.order !== want) {
+        list[k].data.order = want;
+        await writeJSON(dir, list[k].file, serialize(list[k].data));
+      }
+    }
+    await loadConfigs();
+    renderOverview();
+  } catch (e) {
+    await loadConfigs(); renderOverview();
+    if (await showReadOnly(e)) moveConfig(i, dirn);
+  }
+}
+async function deleteConfig(c) {
+  const ok = await modal({
+    title: "Delete this config?",
+    body: `<p>Delete <b>${esc(c.data.name)}</b> from the MacroPad? This can't be undone.</p>`,
+    buttons: [{ label: "Cancel", value: false }, { label: "Delete", value: true, kind: "danger solid" }],
+  });
+  if (!ok) return;
+  try {
+    await ensureWritable();
+    const dir = await configsDir(false);
+    await dir.removeEntry(c.file);
+    await loadConfigs();
+    toast(`"${c.data.name}" deleted.`);
+    S.dirty = false;
+    if (!S.configs.length) startWizard(true); else renderOverview();
+  } catch (e) {
+    if (e.name === "NotFoundError") { await loadConfigs(); renderOverview(); return; }
+    if (await showReadOnly(e)) deleteConfig(c);
+  }
+}
+
+/* ---------------------------------------------------------------- wizard */
+function startWizard(first) {
+  S.ed = null; S.dirty = false;
+  S.wiz = { step: 0, mode: null, name: "", dim: 5, first };
+  renderWizard();
+  show("vWizard");
+}
+function renderWizard() {
+  const w = S.wiz;
+  [...$("wizSteps").children].forEach((s, i) => s.classList.toggle("on", i <= w.step));
+  $("wizBack").textContent = w.step === 0 ? (w.first ? "Back" : "Cancel") : "Back";
+  $("wizNext").textContent = w.step === 2 ? "Continue to keys →" : "Next";
+  const preview = newConfig(w.mode || "hid", w.name || "My config", w.dim);
+  if (w.step === 0) {
+    $("wizBody").innerHTML = `
+      <div class="eyebrow">${w.first ? "Setup wizard · " : ""}Step 1 of 3</div>
+      <h1>How should this config work?</h1>
+      <p class="lead">${w.first ? "There are no configs on this MacroPad yet. Let's make the first one. " : ""}You can mix both kinds and switch between them with the knob.</p>
+      <div class="choices">
+        <button class="choice" data-mode="keyboard" aria-pressed="${w.mode === "keyboard"}">
+          <span class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M8 16h8"/></svg></span>
+          <b>Keyboard</b>
+          <span>Each key sends a key or a shortcut, like Ctrl+F1. You give each key a short name for the display.</span>
+        </button>
+        <button class="choice" data-mode="hid" aria-pressed="${w.mode === "hid"}">
+          <span class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><path d="M17.3 5H6.7a4 4 0 0 0-3.96 3.4l-.95 6.6A2.6 2.6 0 0 0 4.36 18c.86 0 1.6-.53 1.98-1.3L7.5 14h9l1.16 2.7c.38.77 1.12 1.3 1.98 1.3a2.6 2.6 0 0 0 2.57-3l-.95-6.6A4 4 0 0 0 17.3 5z"/></svg></span>
+          <b>HID controller</b>
+          <span>The keys are game-controller buttons 1–12. Bind them in your game like a button box. No keyboard clashes.</span>
+        </button>
+      </div>`;
+  } else if (w.step === 1) {
+    $("wizBody").innerHTML = `
+      <div class="eyebrow">Step 2 of 3</div>
+      <h1>Give it a name</h1>
+      <p class="lead">The name is shown on the MacroPad display when you select this config with the knob.</p>
+      <div class="field" style="margin-top:20px">
+        <input class="input big" id="wizName" maxlength="${NAME_MAX}" placeholder="For example: ACC Race" value="${esc(w.name)}" autocomplete="off">
+        <div class="err-text" id="wizNameErr"></div>
+        <p class="hint">Up to ${NAME_MAX} characters. Plain letters, numbers and symbols only.</p>
+      </div>
+      <div class="label">Display preview</div>
+      <div class="oled-wrap" id="wizOled">${oledOnly(preview)}</div>`;
+    const inp = $("wizName");
+    inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
+    inp.oninput = () => {
+      const v = ascii(inp.value).slice(0, NAME_MAX);
+      if (v !== inp.value) inp.value = v;
+      w.name = v; $("wizNameErr").textContent = ""; inp.classList.remove("err");
+      $("wizOled").innerHTML = oledOnly(newConfig(w.mode, w.name || "My config", w.dim));
+    };
+    inp.onkeydown = e => { if (e.key === "Enter") $("wizNext").click(); };
+  } else {
+    const custom = !DIM_OPTIONS.includes(w.dim);
+    $("wizBody").innerHTML = `
+      <div class="eyebrow">Step 3 of 3</div>
+      <h1>When should the lights dim?</h1>
+      <p class="lead">After this many minutes without a key press, the key lights and the display turn off. The keys keep working, and any press turns the lights back on.</p>
+      <div class="chips" id="wizDim">
+        ${DIM_OPTIONS.map(m => `<button class="chip" data-dim="${m}" aria-pressed="${!custom && w.dim === m}">${m ? m + " min" : "Never dim"}</button>`).join("")}
+      </div>
+      <div class="row" style="margin-top:16px">
+        <label class="muted" for="wizDimCustom">Other:</label>
+        <input class="input" id="wizDimCustom" type="number" min="1" max="1440" step="1" style="width:110px" value="${custom ? w.dim : ""}" placeholder="min">
+        <span class="muted">minutes</span>
+      </div>`;
+    $("wizDim").onclick = e => {
+      const b = e.target.closest("[data-dim]"); if (!b) return;
+      w.dim = +b.dataset.dim; $("wizDimCustom").value = ""; renderWizard();
+    };
+    $("wizDimCustom").oninput = e => {
+      const v = Math.round(+e.target.value);
+      if (v > 0) {
+        w.dim = Math.min(v, 1440);
+        $("wizDim").querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", "false"));
+      }
+    };
+  }
+  $("wizNext").disabled = w.step === 0 && !w.mode;
+}
+$("wizBody").addEventListener("click", e => {
+  const b = e.target.closest("[data-mode]"); if (!b) return;
+  S.wiz.mode = b.dataset.mode; renderWizard();
+});
+$("wizBody").addEventListener("dblclick", e => {
+  if (e.target.closest("[data-mode]")) $("wizNext").click();
+});
+$("wizBack").onclick = () => {
+  const w = S.wiz;
+  if (w.step > 0) { w.step--; renderWizard(); return; }
+  if (S.configs.length || S.badFiles.length) renderOverview();
+  else { show("vConnect"); }
+};
+$("wizNext").onclick = () => {
+  const w = S.wiz;
+  if (w.step === 0 && !w.mode) return;
+  if (w.step === 1) {
+    const err = nameError(w.name, null);
+    if (err) { $("wizNameErr").textContent = err; $("wizName").classList.add("err"); $("wizName").focus(); return; }
+  }
+  if (w.step < 2) { w.step++; renderWizard(); return; }
+  openEditor(null, newConfig(w.mode, w.name.trim(), w.dim), true);
+};
+function nameError(name, ownFile) {
+  name = name.trim();
+  if (!name) return "Please enter a name.";
+  if (S.configs.some(c => c.file !== ownFile && c.data.name.trim().toLowerCase() === name.toLowerCase()))
+    return "There is already a config with this name.";
+  return "";
+}
+
+/* ---------------------------------------------------------------- editor */
+function openEditor(file, data, isNew = false) {
+  S.ed = { file, data, original: isNew ? "" : JSON.stringify(serialize(data)) };
+  S.sel = 0; S.manualOpen = false; stopRecording();
+  setDirty(isNew);
+  renderConfigPanel(); renderKeyPanel(); renderBoard();
+  $("edDelete").hidden = !file;
+  show("vEditor");
+}
+function setDirty(v) {
+  S.dirty = v;
+  $("edUnsaved").hidden = !v;
+}
+function changed() {
+  setDirty(!S.ed.original || JSON.stringify(serialize(S.ed.data)) !== S.ed.original);
+  renderBoard();
+}
+function renderBoard() {
+  const c = S.ed.data;
+  $("edTitle").textContent = c.name || "Untitled";
+  $("edBoard").innerHTML = boardSVG(c, { selected: S.sel, interactive: true });
+}
+function selectKey(i) {
+  stopRecording();
+  S.sel = (i + NUM_KEYS) % NUM_KEYS;
+  renderKeyPanel(); renderBoard();
+}
+$("edBoard").addEventListener("click", e => {
+  const k = e.target.closest("[data-key]"); if (k) selectKey(+k.dataset.key);
+});
+$("edBoard").addEventListener("keydown", e => {
+  const k = e.target.closest("[data-key]"); if (!k) return;
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault(); selectKey(+k.dataset.key);
+    const again = $("edBoard").querySelector(`[data-key="${S.sel}"]`); again && again.focus();
+  }
+});
+
+function renderConfigPanel() {
+  const c = S.ed.data;
+  const custom = !DIM_OPTIONS.includes(c.dim_minutes);
+  $("cfgPanel").innerHTML = `
+    <div class="panel-h"><h2>Config</h2><span class="badge ${c.mode === "keyboard" ? "kb" : "hid"}">${c.mode === "keyboard" ? "Keyboard" : "HID controller"}</span></div>
+    <div class="field">
+      <label for="cName">Name</label>
+      <input class="input" id="cName" maxlength="${NAME_MAX}" value="${esc(c.name)}" autocomplete="off">
+      <div class="err-text" id="cNameErr"></div>
+    </div>
+    <div class="two">
+      <div class="field">
+        <span class="label">Mode</span>
+        <div class="seg" id="cMode">
+          <button data-mode="keyboard" aria-pressed="${c.mode === "keyboard"}">Keyboard</button>
+          <button data-mode="hid" aria-pressed="${c.mode === "hid"}">HID controller</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="cDim">Dim lights after</label>
+        <select class="input" id="cDim">
+          ${DIM_OPTIONS.map(m => `<option value="${m}" ${c.dim_minutes === m ? "selected" : ""}>${m ? m + " minutes" : "Never dim"}</option>`).join("")}
+          ${custom ? `<option value="${c.dim_minutes}" selected>${c.dim_minutes} minutes</option>` : ""}
+        </select>
+      </div>
+    </div>`;
+  $("cName").oninput = e => {
+    const v = ascii(e.target.value).slice(0, NAME_MAX);
+    if (v !== e.target.value) e.target.value = v;
+    c.name = v; $("cNameErr").textContent = ""; e.target.classList.remove("err");
+    changed();
+  };
+  $("cMode").onclick = e => {
+    const b = e.target.closest("[data-mode]"); if (!b || b.dataset.mode === c.mode) return;
+    c.mode = b.dataset.mode; stopRecording();
+    renderConfigPanel(); renderKeyPanel(); changed();
+  };
+  $("cDim").onchange = e => { c.dim_minutes = +e.target.value; changed(); };
+}
+
+function renderKeyPanel() {
+  const c = S.ed.data, i = S.sel, k = c.keys[i];
+  const kb = c.mode === "keyboard";
+  const presetOn = PRESETS.find(p => p[1] === k.color);
+  let html = `
+    <div class="kp-head">
+      <button class="btn icon" id="kPrev" aria-label="Previous key">‹</button>
+      <div><div class="eyebrow">${kb ? "Keyboard key" : "Gamepad button " + (i + 1)}</div><h3>Key ${i + 1}</h3></div>
+      <button class="btn icon" id="kNext" aria-label="Next key">›</button>
+    </div>
+    <div class="field">
+      <span class="label">LED color${presetOn ? ` <span class="muted">· ${presetOn[0]}</span>` : ""}</span>
+      <div class="swatches" id="kSwatches">
+        ${PRESETS.map(([n, h]) => `<button class="sw ${h === "#000000" ? "off" : ""} ${h === k.color ? "on" : ""}" data-color="${h}" title="${n}" aria-label="${n}" style="--c:${h}"></button>`).join("")}
+      </div>
+      <div class="row custom">
+        <label class="picker" id="kPicker" style="--c:${k.color}" title="Custom color"><input type="color" id="kColor" value="${k.color.toLowerCase()}" aria-label="Custom color"></label>
+        <input class="input hex" id="kHex" value="${k.color}" maxlength="7" spellcheck="false" aria-label="Hex color">
+        <button class="btn sm ghost" id="kAll">Use on all keys</button>
+      </div>
+    </div>`;
+  if (kb) {
+    html += `
+    <div class="field">
+      <span class="label">Key or shortcut</span>
+      <div class="combo" id="kCombo"></div>
+      <div class="row">
+        <button class="btn sm primary" id="kRec"></button>
+        <button class="btn sm" id="kClear">Clear</button>
+      </div>
+      <details class="manual" id="kManual" ${S.manualOpen ? "open" : ""}>
+        <summary>Add keys by hand</summary>
+        <div class="row" id="kMods">
+          ${MODS.slice(0, 4).map(([, u, n]) => `<button class="mod" data-mod="${u}" aria-pressed="${k.codes.includes(u)}">${n}</button>`).join("")}
+        </div>
+        <div class="row">
+          <select class="input" id="kAdd" style="max-width:260px">
+            <option value="">+ Add a key…</option>
+            ${GROUPS.map(([g, list]) => `<optgroup label="${g}">${list.map(u => `<option value="${u}">${esc(KEYNAME[u])}</option>`).join("")}</optgroup>`).join("")}
+            <optgroup label="Right-hand modifiers">${MODS.slice(4).map(([, u, n]) => `<option value="${u}">${n}</option>`).join("")}</optgroup>
+          </select>
+        </div>
+        <p class="hint">Use this for shortcuts your computer catches before the page sees them, such as Ctrl+W, Alt+Tab or ${IS_MAC ? "Cmd+Q" : "Win+L"}.</p>
+      </details>
+    </div>
+    <div class="field">
+      <label for="kLabel">Display name <span class="muted">(max ${LABEL_MAX} characters, shown on the MacroPad screen)</span></label>
+      <input class="input label-input" id="kLabel" maxlength="${LABEL_MAX}" value="${esc(k.label)}" autocomplete="off" placeholder="PIT">
+    </div>`;
+  } else {
+    html += `<p class="hint">In HID controller mode this key is <b>button ${i + 1}</b> of the “Macropad HID” game controller. Bind it in your game’s controls menu, just like a wheel button.</p>`;
+  }
+  $("keyPanel").innerHTML = html;
+
+  $("kPrev").onclick = () => selectKey(S.sel - 1);
+  $("kNext").onclick = () => selectKey(S.sel + 1);
+  const setColor = (hex, rerender = true) => {
+    k.color = hex;
+    if (rerender) renderKeyPanel();
+    else {
+      $("kPicker").style.setProperty("--c", hex);
+      $("kSwatches").querySelectorAll(".sw").forEach(s => s.classList.toggle("on", s.dataset.color === hex));
+    }
+    changed();
+  };
+  $("kSwatches").onclick = e => { const s = e.target.closest("[data-color]"); if (s) setColor(s.dataset.color); };
+  $("kColor").oninput = e => { const h = e.target.value.toUpperCase(); $("kHex").value = h; setColor(h, false); };
+  $("kColor").onchange = () => renderKeyPanel();
+  $("kHex").oninput = e => {
+    const h = validHex(e.target.value);
+    e.target.classList.toggle("err", !h);
+    if (h) { $("kColor").value = h.toLowerCase(); setColor(h, false); }
+  };
+  $("kHex").onblur = e => { if (!validHex(e.target.value)) { e.target.value = k.color; e.target.classList.remove("err"); } };
+  $("kAll").onclick = () => {
+    c.keys.forEach(x => { x.color = k.color; });
+    renderKeyPanel(); changed(); toast("Color applied to all 12 keys.");
+  };
+  if (!kb) return;
+
+  renderCombo();
+  $("kRec").onclick = () => S.rec ? stopRecording() : startRecording();
+  $("kClear").onclick = () => { stopRecording(); k.codes = []; renderKeyPanel(); changed(); };
+  $("kManual").ontoggle = e => { S.manualOpen = e.target.open; };
+  $("kMods").onclick = e => {
+    const b = e.target.closest("[data-mod]"); if (!b) return;
+    const u = +b.dataset.mod;
+    k.codes = k.codes.includes(u) ? k.codes.filter(x => x !== u) : sortCodes([...k.codes, u]);
+    renderKeyPanel(); changed();
+  };
+  $("kAdd").onchange = e => {
+    const u = +e.target.value; e.target.value = "";
+    if (!u || k.codes.includes(u)) return;
+    if (!isMod(u) && k.codes.filter(x => !isMod(x)).length >= MAX_KEYS_PER_COMBO) { toast(`At most ${MAX_KEYS_PER_COMBO} keys plus modifiers.`); return; }
+    k.codes = sortCodes([...k.codes, u]);
+    autoLabel(k);
+    renderKeyPanel(); changed();
+  };
+  $("kLabel").oninput = e => {
+    const v = ascii(e.target.value).slice(0, LABEL_MAX);
+    if (v !== e.target.value) e.target.value = v;
+    k.label = v; changed();
+  };
+}
+function renderCombo() {
+  const box = $("kCombo");
+  if (!box || !S.ed) return;
+  const k = S.ed.data.keys[S.sel];
+  const codes = S.rec ? S.rec.codes : k.codes;
+  box.classList.toggle("rec", !!S.rec);
+  if (!codes.length) {
+    box.innerHTML = `<span class="empty">${S.rec ? "Press the key or combination now…" : "No key set. Click “Record shortcut” and press the keys."}</span>`;
+  } else {
+    box.innerHTML = sortCodes(codes).map((u, n) => `${n ? '<span class="plus-sep">+</span>' : ""}<span class="kchip">${esc(KEYNAME[u] || "#" + u)}${S.rec ? "" : `<button data-rm="${u}" aria-label="Remove ${esc(KEYNAME[u] || u)}">×</button>`}</span>`).join("");
+  }
+  const rb = $("kRec");
+  if (rb) { rb.textContent = S.rec ? "Cancel recording" : "Record shortcut"; rb.classList.toggle("primary", !S.rec); }
+  box.onclick = e => {
+    const b = e.target.closest("[data-rm]"); if (!b) return;
+    k.codes = k.codes.filter(x => x !== +b.dataset.rm);
+    renderKeyPanel(); changed();
+  };
+}
+function autoLabel(k) {
+  if (k.label) return;
+  const main = k.codes.filter(c => !isMod(c));
+  const u = main[main.length - 1];
+  if (u) k.label = ascii(KEYNAME[u]).toUpperCase().slice(0, LABEL_MAX);
+}
+
+/* Shortcut recording: capture keys before the page or browser reacts. */
+function startRecording() {
+  S.rec = { pressed: new Set(), codes: [] };
+  renderCombo();
+  if (document.activeElement && document.activeElement !== $("kRec")) document.activeElement.blur();
+}
+function stopRecording() {
+  if (!S.rec) return;
+  S.rec = null;
+  renderCombo();
+}
+function finishRecording() {
+  const k = S.ed.data.keys[S.sel];
+  k.codes = sortCodes(S.rec.codes);
+  S.rec = null;
+  autoLabel(k);
+  renderKeyPanel(); changed();
+}
+window.addEventListener("keydown", e => {
+  if (!S.rec) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.repeat) return;
+  const u = USAGE[e.code];
+  if (u === undefined) { toast(`“${e.key}” can't be sent by the MacroPad.`); return; }
+  S.rec.pressed.add(e.code);
+  if (!S.rec.codes.includes(u)) {
+    if (!isMod(u) && S.rec.codes.filter(x => !isMod(x)).length >= MAX_KEYS_PER_COMBO) return;
+    S.rec.codes.push(u);
+  }
+  renderCombo();
+}, true);
+window.addEventListener("keyup", e => {
+  if (!S.rec) return;
+  e.preventDefault(); e.stopPropagation();
+  const u = USAGE[e.code];
+  // On Windows, PrintScreen only reports a keyup.
+  if (e.code === "PrintScreen" && !S.rec.codes.includes(u)) S.rec.codes.push(u);
+  S.rec.pressed.delete(e.code);
+  // macOS sends no keyup for other keys while Cmd is held.
+  if (e.code === "MetaLeft" || e.code === "MetaRight") S.rec.pressed.clear();
+  if (!S.rec.pressed.size && S.rec.codes.length) finishRecording();
+}, true);
+window.addEventListener("blur", () => { if (S.rec) { if (S.rec.codes.length) finishRecording(); else stopRecording(); } });
+
+/* Save / cancel / delete */
+async function saveConfig() {
+  if (!S.ed) return;
+  stopRecording();
+  const c = S.ed.data;
+  c.name = c.name.trim();
+  const err = nameError(c.name, S.ed.file);
+  if (err) {
+    $("cNameErr").textContent = err; $("cName").classList.add("err"); $("cName").focus();
+    return;
+  }
+  // Pick a filename from the name; keep it unique.
+  const taken = new Set(S.configs.filter(x => x.file !== S.ed.file).map(x => x.file.toLowerCase()));
+  let base = slugify(c.name), file = base + ".json";
+  for (let n = 2; taken.has(file.toLowerCase()); n++) file = `${base}-${n}.json`;
+  if (S.ed.file && S.ed.file.toLowerCase() === file.toLowerCase()) file = S.ed.file;
+
+  const btn = $("edSave");
+  btn.disabled = true; btn.textContent = "Saving…";
+  let retry = false;
+  try {
+    await ensureWritable();
+    const dir = await configsDir(true);
+    await writeJSON(dir, file, serialize(c));
+    if (S.ed.file && S.ed.file !== file) {
+      try { await dir.removeEntry(S.ed.file); } catch (e) { if (e.name !== "NotFoundError") throw e; }
+    }
+    // Tells the MacroPad to select this config and beep after it reloads.
+    await writeJSON(dir, "_saved.json", { stamp: String(Date.now()), select: file });
+    S.ed.file = file;
+    S.ed.original = JSON.stringify(serialize(c));
+    setDirty(false);
+    $("edDelete").hidden = false;
+    await loadConfigs();
+    chime();
+    toast(`Saved “${c.name}”. The MacroPad beeps when it has loaded it.`);
+  } catch (e) {
+    retry = !!(await showReadOnly(e));
+  } finally {
+    btn.disabled = false; btn.textContent = "Save to MacroPad";
+  }
+  if (retry) saveConfig();
+}
+async function confirmDiscard() {
+  return !!(await modal({
+    title: "Discard changes?",
+    body: "<p>Your changes to this config haven't been saved to the MacroPad.</p>",
+    buttons: [{ label: "Keep editing", value: false }, { label: "Discard", value: true, kind: "danger solid" }],
+  }));
+}
+async function leaveEditor() {
+  if (S.dirty && !(await confirmDiscard())) return;
+  S.dirty = false;
+  await loadConfigs();
+  if (!S.configs.length && !S.badFiles.length) startWizard(true); else renderOverview();
+}
+$("edSave").onclick = saveConfig;
+$("edBack").onclick = leaveEditor;
+$("edCancel").onclick = leaveEditor;
+$("edDelete").onclick = () => {
+  const c = S.configs.find(x => x.file === S.ed.file);
+  if (c) deleteConfig(c);
+};
+document.addEventListener("keydown", e => {
+  if (!$("modal").hidden && e.key === "Escape") { closeModal(null); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && !$("vEditor").hidden) { e.preventDefault(); saveConfig(); }
+});
+window.addEventListener("beforeunload", e => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ---------------------------------------------------------------- start */
+(async function init() {
+  const demo = newConfig("keyboard", "Macropad HID", 5);
+  ["PIT", "LGHT", "WIPE", "TC-", "MFD", "TC+", "ABS-", "RAD", "ABS+", "MAP-", "IGN", "MAP+"].forEach((l, i) => {
+    demo.keys[i].label = l;
+    demo.keys[i].color = ["#FF0000", "#FFC800", "#00FFFF", "#0000FF", "#FFFFFF", "#0000FF", "#8000FF", "#00FF00", "#8000FF", "#FF5000", "#FF00A0", "#FF5000"][i];
+  });
+  $("connectArt").innerHTML = boardSVG(demo);
+  if (!("showDirectoryPicker" in window)) {
+    $("unsupported").hidden = false;
+    $("btnSelect").disabled = true;
+    return;
+  }
+  if (await kvGet("drive")) $("btnReconnect").hidden = false;
+})();
+</script>
+</body>
+</html>
